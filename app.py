@@ -143,10 +143,11 @@ with tabs[1]:
     # Q2 Provider type contributions
     st.markdown("**Q2: Which provider types contribute the most listings?**")
     df = run_df("""
-        SELECT Provider_Type, COUNT(*) AS Total_Listings
-        FROM Food_Listings
-        GROUP BY Provider_Type
-        ORDER BY Total_Listings DESC;
+       SELECT Name, Type, Address, Contact
+FROM Providers
+WHERE City = :city
+ORDER BY Name;
+
     """)
     st.dataframe(df, use_container_width=True)
     try:
@@ -492,3 +493,4 @@ with tabs[5]:
                     st.success(f"Claim {claim_id} deleted.")
                 except Exception as e:
                     st.error(f"Failed to delete claim: {e}")
+
