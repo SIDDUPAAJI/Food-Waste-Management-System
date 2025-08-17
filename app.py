@@ -346,17 +346,110 @@ with tabs[5]:
     vals = list_values()
     crud_tabs = st.tabs(["Add Listing", "Update Quantity", "Add Claim", "Delete Claim"])
 
+    # -------------------------------
     # Add Listing
+    # -------------------------------
     with crud_tabs[0]:
         st.markdown("**Create a new Food Listing**")
-        expiry = st.date_input("Expiry Date", value=date.today(), key="expiry_date_add")
-        st.write("Other fields...")
 
+        food_name = st.text_input("Food Name")
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        expiry_date = st.date_input("Expiry Date", value=date.today(), key="expiry_date_add")
+        food_type = st.selectbox("Food Type", vals["food_types"])
+        meal_type = st.selectbox("Meal Type", vals["meal_types"])
+        provider_name = st.selectbox("Provider", list(vals["providers"].keys()))
+        provider_id = vals["providers"][provider_name]
+        location = st.text_input("Location")
+
+        if st.button("Add Listing"):
+            try:
+                df_next = run_df("SELECT COALESCE(MAX(Food_ID), 0)+1 AS next_id FROM Food_Listings;")
+                food_id = int(df_next["next_id"].iloc[0])
+                run_exec("""
+                    INSERT INTO Food_Listings (Food_ID, Food_Name, Quantity, Expiry_Date, Provider_ID,
+                                               Provider_Type, Location, Food_Type, Meal_Type)
+                    VALUES (?, ?, ?, ?, ?, 
+                            (SELECT Type FROM Providers WHERE Provider_ID = ?),
+                            ?, ?, ?);
+                """, (food_id, food_name, quantity, expiry_date.isoformat(), provider_id,
+                      provider_id, location, food_type, meal_type))
+                invalidate_caches()
+                st.success(f"Food Listing {food_id} added successfully.")
+            except Exception as e:
+                st.error(f"Failed to add listing: {e}")
+
+    # -------------------------------
+    # Update Quantity
+    # -------------------------------
+    with crud_tabs[1]:
+        st.markdown("**Update Quantity for a Food Listing**")
+        df = run_df("SELECT Food_ID, Food_Name, Quantity FROM Food_Listings ORDER BY Food_ID LIMIT 100;")
+        if df.empty:
+            st.info("No listings available.")
+        else:
+            row = st.selectbox("Select Listing", df.apply(lambda r: f"{r['Food_ID']} – {r['Food_Name']} (Qty {r['Quantity']})", axis=1))
+            food_id = int(row.split("–")[0].strip())
+            new_qty = st.number_input("New Quantity", min_value=0, step=1)
+            if st.button("Update Quantity"):
+                try:
+                    run_exec("UPDATE Food_Listings SET Quantity = ? WHERE Food_ID = ?;", (new_qty, food_id))
+                    invalidate_caches()
+                    st.success(f"Quantity updated for Food_ID {food_id}.")
+                except Exception as e:
+                    st.error(f"Failed to update quantity: {e}")
+
+    # -------------------------------
     # Add Claim
+    # -------------------------------
     with crud_tabs[2]:
         st.markdown("**Create a Claim**")
-        col1, col2 = st.columns(2)
-        claim_date = col1.date_input("Claim Date", value=date.today(), key="claim_date")
-        claim_time = col2.time_input("Claim Time", value=datetime.now().time(), key="claim_time")
-        ts = datetime.combine(claim_date, claim_time)
-        st.write("Other claim fields...")
+        df_food = run_df("SELECT Food_ID, Food_Name FROM Food_Listings ORDER BY Expiry_Date ASC LIMIT 100;")
+        df_recv = run_df("SELECT Receiver_ID, Name FROM Receivers ORDER BY Name LIMIT 100;")
+        if df_food.empty or df_recv.empty:
+            st.info("Need both listings and receivers to create a claim.")
+        else:
+            food_pick = st.selectbox("Food", df_food.apply(lambda r: f"{r['Food_ID']} – {r['Food_Name']}", axis=1))
+            receiver_pick = st.selectbox("Receiver", df_recv.apply(lambda r: f"{r['Receiver_ID']} – {r['Name']}", axis=1))
+            status = st.selectbox("Status", ["Pending", "Completed", "Cancelled"], index=0)
+
+            col1, col2 = st.columns(2)
+            claim_date = col1.date_input("Claim Date", value=date.today(), key="claim_date_add")
+            claim_time = col2.time_input("Claim Time", value=datetime.now().time(), key="claim_time_add")
+            ts = datetime.combine(claim_date, claim_time)
+
+            if st.button("Add Claim"):
+                try:
+                    df_next = run_df("SELECT COALESCE(MAX(Claim_ID), 0)+1 AS next_id FROM Claims;")
+                    claim_id = int(df_next["next_id"].iloc[0])
+                    food_id = int(food_pick.split("–")[0].strip())
+                    receiver_id = int(receiver_pick.split("–")[0].strip())
+                    run_exec("""
+                        INSERT INTO Claims (Claim_ID, Food_ID, Receiver_ID, Status, Timestamp)
+                        VALUES (?, ?, ?, ?, ?);
+                    """, (claim_id, food_id, receiver_id, status, ts.isoformat(sep=" ")))
+                    invalidate_caches()
+                    st.success(f"Claim {claim_id} created.")
+                except Exception as e:
+                    st.error(f"Failed to add claim: {e}")
+
+    # -------------------------------
+    # Delete Claim
+    # -------------------------------
+    with crud_tabs[3]:
+        st.markdown("**Delete a Claim**")
+        df = run_df("""
+            SELECT Claim_ID, Food_ID, Receiver_ID, Status, Timestamp
+            FROM Claims ORDER BY Timestamp DESC LIMIT 50;
+        """)
+        if df.empty:
+            st.info("No claims available.")
+        else:
+            row = st.selectbox("Select Claim", df.apply(lambda r: f"Claim {r['Claim_ID']} – Food {r['Food_ID']} – Receiver {r['Receiver_ID']} – {r['Status']} – {r['Timestamp']}", axis=1))
+            claim_id = int(row.split("–")[0].replace("Claim", "").strip())
+            if st.button("Delete Claim"):
+                try:
+                    run_exec("DELETE FROM Claims WHERE Claim_ID = ?;", (claim_id,))
+                    invalidate_caches()
+                    st.success(f"Claim {claim_id} deleted.")
+                except Exception as e:
+                    st.error(f"Failed to delete claim: {e}")
