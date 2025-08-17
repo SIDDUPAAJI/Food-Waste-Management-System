@@ -130,12 +130,19 @@ with tabs[1]:
         pass
     # Q2 Provider type contributions
     st.markdown("**Q2: Which provider types contribute the most listings?**")
-    df = run_df("""
-       SELECT Name, Type, Address, Contact
-       FROM Providers
-       WHERE City = :city
-       ORDER BY Name;
-    """, {"city": city} if city != "All" else {})
+    if city != "All":
+        df = run_df("""
+           SELECT Name, Type, Address, Contact
+           FROM Providers
+           WHERE City = :city
+           ORDER BY Name;
+        """, {"city": city})
+    else:
+        df = run_df("""
+           SELECT Name, Type, Address, Contact
+           FROM Providers
+           ORDER BY Name;
+        """)
     st.dataframe(df, use_container_width=True)
     try:
         st.bar_chart(df.set_index("Type"))
