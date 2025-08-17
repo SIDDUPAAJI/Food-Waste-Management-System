@@ -1,21 +1,17 @@
 # app.py
-
 # Local Food Wastage Management System – Full Streamlit App
-
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
-
 import pandas as pd
 import streamlit as st
 
-DB_PATH = Path("cleaned_outputs/food_waste.db") # adjust if needed
+DB_PATH = Path("cleaned_outputs/food_waste.db")  # adjust if needed
 
 # -------------------------------
 # Utilities
 # -------------------------------
-
 @st.cache_resource(show_spinner=False)
 def get_conn():
     if not DB_PATH.exists():
@@ -38,7 +34,7 @@ def run_exec(sql: str, params: tuple | dict = ()):
         conn.commit()
 
 def invalidate_caches():
-    get_conn.clear() # rebuild connection
+    get_conn.clear()  # rebuild connection
     st.cache_data.clear()
 
 @st.cache_data(show_spinner=False)
@@ -62,7 +58,6 @@ def list_values():
 # -------------------------------
 # Layout
 # -------------------------------
-
 st.set_page_config(page_title="Local Food Wastage Management", layout="wide")
 st.title("Local Food Wastage Management System")
 
@@ -75,7 +70,6 @@ tabs = st.tabs(["Home", "Providers & Receivers", "Food Listings", "Claims", "Ana
 # -------------------------------
 # HOME
 # -------------------------------
-
 with tabs[0]:
     st.subheader("Project Overview")
     st.markdown(
@@ -87,12 +81,11 @@ with tabs[0]:
         The goal is to **reduce food wastage** by improving visibility of providers, receivers, food availability, and claims activity in real-time.
         """
     )
-
     col1, col2, col3, col4 = st.columns(4)
-    k1 = run_df("SELECT COUNT(*) AS n FROM Providers;")["n"].iloc[0]
-    k2 = run_df("SELECT COUNT(*) AS n FROM Receivers;")["n"].iloc
-    k3 = run_df("SELECT COUNT(*) AS n FROM Food_Listings;")["n"].iloc
-    k4 = run_df("SELECT COUNT(*) AS n FROM Claims;")["n"].iloc
+    k1 = int(run_df("SELECT COUNT(*) AS n FROM Providers;")["n"].iloc[0])
+    k2 = int(run_df("SELECT COUNT(*) AS n FROM Receivers;")["n"].iloc[0])
+    k3 = int(run_df("SELECT COUNT(*) AS n FROM Food_Listings;")["n"].iloc[0])
+    k4 = int(run_df("SELECT COUNT(*) AS n FROM Claims;")["n"].iloc[0])
     col1.metric("Providers", k1)
     col2.metric("Receivers", k2)
     col3.metric("Food Listings", k3)
@@ -101,13 +94,10 @@ with tabs[0]:
 # -------------------------------
 # PROVIDERS & RECEIVERS
 # -------------------------------
-
 with tabs[1]:
     st.subheader("Providers & Receivers")
     vals = list_values()
-
     city = st.selectbox("Filter by City (optional)", ["All"] + vals["cities"])
-
     # Q1 Providers per city
     st.markdown("**Q1: Providers per city**")
     df = run_df("""
@@ -123,7 +113,6 @@ with tabs[1]:
         st.bar_chart(df.set_index("City"))
     except Exception:
         pass
-
     # Q1b Receivers per city
     st.markdown("**Q1b: Receivers per city**")
     df = run_df("""
@@ -139,22 +128,19 @@ with tabs[1]:
         st.bar_chart(df.set_index("City"))
     except Exception:
         pass
-
     # Q2 Provider type contributions
     st.markdown("**Q2: Which provider types contribute the most listings?**")
     df = run_df("""
        SELECT Name, Type, Address, Contact
-FROM Providers
-WHERE City = :city
-ORDER BY Name;
-
-    """)
+       FROM Providers
+       WHERE City = :city
+       ORDER BY Name;
+    """, {"city": city} if city != "All" else {})
     st.dataframe(df, use_container_width=True)
     try:
-        st.bar_chart(df.set_index("Provider_Type"))
+        st.bar_chart(df.set_index("Type"))
     except Exception:
         pass
-
     # Q3 Provider contacts
     st.markdown("**Q3: Provider contacts in selected city**")
     city_contact = st.selectbox("Choose city", vals["cities"])
@@ -165,7 +151,6 @@ ORDER BY Name;
         ORDER BY Name;
     """, {"city": city_contact})
     st.dataframe(df, use_container_width=True)
-
     # Q4 Top receivers by claims
     st.markdown("**Q4: Top receivers by total claims**")
     df = run_df("""
@@ -185,16 +170,13 @@ ORDER BY Name;
 # -------------------------------
 # FOOD LISTINGS
 # -------------------------------
-
 with tabs[2]:
     st.subheader("Food Listings")
     vals = list_values()
-
     c1, c2, c3 = st.columns(3)
     filt_city = c1.selectbox("City", ["All"] + vals["cities"], index=0)
     filt_food_type = c2.selectbox("Food Type", ["All"] + vals["food_types"], index=0)
     filt_meal_type = c3.selectbox("Meal Type", ["All"] + vals["meal_types"], index=0)
-
     base_sql = """
         SELECT Food_ID, Food_Name, Quantity, Expiry_Date, Provider_ID,
         Provider_Type, Location AS City, Food_Type, Meal_Type
@@ -211,15 +193,12 @@ with tabs[2]:
     if filt_meal_type != "All":
         params["mt"] = filt_meal_type
         base_sql += " AND Meal_Type = :mt"
-
     df = run_df(base_sql + " ORDER BY Expiry_Date ASC, Quantity DESC;", params)
     st.dataframe(df, use_container_width=True, height=420)
-
     # Q5 Total quantity available
     st.markdown("**Q5: Total quantity available**")
     df_q5 = run_df("SELECT SUM(Quantity) AS Total_Quantity FROM Food_Listings;")
     st.dataframe(df_q5, use_container_width=True)
-
     # Q6 city with most listings
     st.markdown("**Q6: City with most listings**")
     df_q6 = run_df("""
@@ -234,7 +213,6 @@ with tabs[2]:
         st.bar_chart(df_q6.set_index("City"))
     except Exception:
         pass
-
     # Q7 most common food types
     st.markdown("**Q7: Most common food types**")
     df_q7 = run_df("""
@@ -252,10 +230,8 @@ with tabs[2]:
 # -------------------------------
 # CLAIMS
 # -------------------------------
-
 with tabs[3]:
     st.subheader("Claims")
-
     # Q8 claims per food item
     st.markdown("**Q8: Claims per food item**")
     df = run_df("""
@@ -271,7 +247,6 @@ with tabs[3]:
         st.bar_chart(df.set_index("Food_Name")["Claims_Count"])
     except Exception:
         pass
-
     # Q9 provider by completed claims
     st.markdown("**Q9: Provider with most successful (Completed) claims**")
     df = run_df("""
@@ -285,7 +260,6 @@ with tabs[3]:
         LIMIT 10;
     """)
     st.dataframe(df, use_container_width=True)
-
     # Q10 claim status distribution
     st.markdown("**Q10: Claim status distribution (%)**")
     df = run_df("""
@@ -305,10 +279,8 @@ with tabs[3]:
 # -------------------------------
 # ANALYTICS
 # -------------------------------
-
 with tabs[4]:
     st.subheader("Analytics")
-
     # Q11 average quantity per receiver
     st.markdown("**Q11: Average claimed quantity per receiver**")
     df = run_df("""
@@ -326,7 +298,6 @@ with tabs[4]:
         LIMIT 20;
     """)
     st.dataframe(df, use_container_width=True)
-
     # Q12 meal type most claimed
     st.markdown("**Q12: Meal type most claimed**")
     df = run_df("""
@@ -341,7 +312,6 @@ with tabs[4]:
         st.bar_chart(df.set_index("Meal_Type")["Claims_Count"])
     except Exception:
         pass
-
     # Q13 total quantity donated by provider
     st.markdown("**Q13: Total quantity donated by provider**")
     df = run_df("""
@@ -353,7 +323,6 @@ with tabs[4]:
         LIMIT 20;
     """)
     st.dataframe(df, use_container_width=True)
-
     # Q14 listings nearing expiry
     st.markdown("**Q14: Listings nearing expiry (next 2 days)**")
     df = run_df("""
@@ -363,7 +332,6 @@ with tabs[4]:
         ORDER BY Expiry_Date ASC;
     """)
     st.dataframe(df, use_container_width=True)
-
     # Q15 daily claims trend
     st.markdown("**Q15: Daily claims trend**")
     df = run_df("""
@@ -381,7 +349,6 @@ with tabs[4]:
 # -------------------------------
 # CRUD
 # -------------------------------
-
 with tabs[5]:
     st.subheader("CRUD Operations")
     vals = list_values()
@@ -390,7 +357,7 @@ with tabs[5]:
     # -------------------------------
     # Add Listing
     # -------------------------------
-    with crud_tabs:
+    with crud_tabs[0]:
         st.markdown("**Create a new Food Listing**")
         food_name = st.text_input("Food Name")
         quantity = st.number_input("Quantity", min_value=1, step=1)
@@ -458,8 +425,8 @@ with tabs[5]:
                 try:
                     df_next = run_df("SELECT COALESCE(MAX(Claim_ID), 0)+1 AS next_id FROM Claims;")
                     claim_id = int(df_next["next_id"].iloc[0])
-                    food_id = int(food_pick.split("–").strip())
-                    receiver_id = int(receiver_pick.split("–").strip())
+                    food_id = int(food_pick.split("–")[0].strip())
+                    receiver_id = int(receiver_pick.split("–")[0].strip())
                     run_exec("""
                         INSERT INTO Claims (Claim_ID, Food_ID, Receiver_ID, Status, Timestamp)
                         VALUES (?, ?, ?, ?, ?);
@@ -493,4 +460,3 @@ with tabs[5]:
                     st.success(f"Claim {claim_id} deleted.")
                 except Exception as e:
                     st.error(f"Failed to delete claim: {e}")
-
