@@ -346,7 +346,7 @@ with tabs[5]:
     vals = list_values()
     crud_tabs = st.tabs(["Add Listing", "Update Quantity", "Add Claim", "Delete Claim"])
 
-    # -------------------------------
+       # -------------------------------
     # Add Listing
     # -------------------------------
     with crud_tabs[0]:
@@ -363,20 +363,25 @@ with tabs[5]:
 
         if st.button("Add Listing"):
             try:
+                # get next Food_ID
                 df_next = run_df("SELECT COALESCE(MAX(Food_ID), 0)+1 AS next_id FROM Food_Listings;")
                 food_id = int(df_next["next_id"].iloc[0])
+
+                # fetch provider_type from Providers table (avoid using ambiguous column names in SQL)
+                df_pt = run_df("SELECT Provider_Type FROM Providers WHERE Provider_ID = ? LIMIT 1;", (provider_id,))
+                provider_type = df_pt["Provider_Type"].iloc[0] if not df_pt.empty else ""
+
                 run_exec("""
                     INSERT INTO Food_Listings (Food_ID, Food_Name, Quantity, Expiry_Date, Provider_ID,
                                                Provider_Type, Location, Food_Type, Meal_Type)
-                    VALUES (?, ?, ?, ?, ?, 
-                            (SELECT Type FROM Providers WHERE Provider_ID = ?),
-                            ?, ?, ?);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (food_id, food_name, quantity, expiry_date.isoformat(), provider_id,
-                      provider_id, location, food_type, meal_type))
+                      provider_type, location, food_type, meal_type))
                 invalidate_caches()
                 st.success(f"Food Listing {food_id} added successfully.")
             except Exception as e:
                 st.error(f"Failed to add listing: {e}")
+
 
     # -------------------------------
     # Update Quantity
@@ -453,4 +458,5 @@ with tabs[5]:
                     st.success(f"Claim {claim_id} deleted.")
                 except Exception as e:
                     st.error(f"Failed to delete claim: {e}")
+
 
