@@ -145,9 +145,10 @@ with tabs[1]:
     city_contact = st.selectbox("Choose city", vals["cities"])
     df = run_df("""
         SELECT Name, Type, Address, Contact
-        FROM Providers
-        WHERE City = :city
-        ORDER BY Name;
+     FROM Providers
+WHERE City = :city
+ORDER BY Name;
+
     """, {"city": city_contact})
     st.dataframe(df, use_container_width=True)
 
@@ -453,3 +454,4 @@ with tabs[5]:
                     st.success(f"Claim {claim_id} deleted.")
                 except Exception as e:
                     st.error(f"Failed to delete claim: {e}")
+
