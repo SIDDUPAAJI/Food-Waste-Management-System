@@ -1,4 +1,5 @@
 # app.py
+
 # Local Food Wastage Management System – Full Streamlit App
 
 import sqlite3
@@ -9,11 +10,12 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-DB_PATH = Path("cleaned_outputs/food_waste.db")  # adjust if needed
+DB_PATH = Path("cleaned_outputs/food_waste.db") # adjust if needed
 
 # -------------------------------
 # Utilities
 # -------------------------------
+
 @st.cache_resource(show_spinner=False)
 def get_conn():
     if not DB_PATH.exists():
@@ -36,11 +38,12 @@ def run_exec(sql: str, params: tuple | dict = ()):
         conn.commit()
 
 def invalidate_caches():
-    get_conn.clear()  # rebuild connection
+    get_conn.clear() # rebuild connection
     st.cache_data.clear()
 
 @st.cache_data(show_spinner=False)
 def list_values():
+    # return config values for controls
     cities = sorted(set(run_df("SELECT City FROM Providers UNION SELECT Location AS City FROM Food_Listings;")["City"]))
     providers = run_df("SELECT Provider_ID, Name FROM Providers ORDER BY Name;")
     provider_options = dict(zip(providers["Name"], providers["Provider_ID"]))
@@ -59,6 +62,7 @@ def list_values():
 # -------------------------------
 # Layout
 # -------------------------------
+
 st.set_page_config(page_title="Local Food Wastage Management", layout="wide")
 st.title("Local Food Wastage Management System")
 
@@ -71,24 +75,24 @@ tabs = st.tabs(["Home", "Providers & Receivers", "Food Listings", "Claims", "Ana
 # -------------------------------
 # HOME
 # -------------------------------
+
 with tabs[0]:
     st.subheader("Project Overview")
     st.markdown(
         """
-This application connects to the cleaned SQLite database and provides:
-
-- Dashboards with dynamic filters (city, provider, food type, meal type)  
-- 15 curated analytical queries with visualization support  
-- Full CRUD operations: add listings, update quantities, add/delete claims  
-
-The goal is to **reduce food wastage** by improving visibility of providers, receivers, food availability, and claims activity in real-time.
+        This application connects to the cleaned SQLite database and provides:
+        - Dashboards with dynamic filters (city, provider, food type, meal type)
+        - 15 curated analytical queries with visualization support
+        - Full CRUD operations: add listings, update quantities, add/delete claims
+        The goal is to **reduce food wastage** by improving visibility of providers, receivers, food availability, and claims activity in real-time.
         """
     )
+
     col1, col2, col3, col4 = st.columns(4)
     k1 = run_df("SELECT COUNT(*) AS n FROM Providers;")["n"].iloc[0]
-    k2 = run_df("SELECT COUNT(*) AS n FROM Receivers;")["n"].iloc[0]
-    k3 = run_df("SELECT COUNT(*) AS n FROM Food_Listings;")["n"].iloc[0]
-    k4 = run_df("SELECT COUNT(*) AS n FROM Claims;")["n"].iloc[0]
+    k2 = run_df("SELECT COUNT(*) AS n FROM Receivers;")["n"].iloc
+    k3 = run_df("SELECT COUNT(*) AS n FROM Food_Listings;")["n"].iloc
+    k4 = run_df("SELECT COUNT(*) AS n FROM Claims;")["n"].iloc
     col1.metric("Providers", k1)
     col2.metric("Receivers", k2)
     col3.metric("Food Listings", k3)
@@ -97,9 +101,11 @@ The goal is to **reduce food wastage** by improving visibility of providers, rec
 # -------------------------------
 # PROVIDERS & RECEIVERS
 # -------------------------------
+
 with tabs[1]:
     st.subheader("Providers & Receivers")
     vals = list_values()
+
     city = st.selectbox("Filter by City (optional)", ["All"] + vals["cities"])
 
     # Q1 Providers per city
@@ -110,10 +116,13 @@ with tabs[1]:
         GROUP BY City
         ORDER BY Total_Providers DESC, City ASC;
     """)
-    if city != "All": df = df[df["City"] == city]
+    if city != "All":
+        df = df[df["City"] == city]
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("City"))
-    except: pass
+    try:
+        st.bar_chart(df.set_index("City"))
+    except Exception:
+        pass
 
     # Q1b Receivers per city
     st.markdown("**Q1b: Receivers per city**")
@@ -123,10 +132,13 @@ with tabs[1]:
         GROUP BY City
         ORDER BY Total_Receivers DESC, City ASC;
     """)
-    if city != "All": df = df[df["City"] == city]
+    if city != "All":
+        df = df[df["City"] == city]
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("City"))
-    except: pass
+    try:
+        st.bar_chart(df.set_index("City"))
+    except Exception:
+        pass
 
     # Q2 Provider type contributions
     st.markdown("**Q2: Which provider types contribute the most listings?**")
@@ -137,17 +149,19 @@ with tabs[1]:
         ORDER BY Total_Listings DESC;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("Provider_Type"))
-    except: pass
+    try:
+        st.bar_chart(df.set_index("Provider_Type"))
+    except Exception:
+        pass
 
     # Q3 Provider contacts
     st.markdown("**Q3: Provider contacts in selected city**")
     city_contact = st.selectbox("Choose city", vals["cities"])
     df = run_df("""
-      SELECT Name, Provider_Type, Address, Contact
-      FROM Providers
-      WHERE City = :city
-      ORDER BY Name;
+        SELECT Name, Provider_Type, Address, Contact
+        FROM Providers
+        WHERE City = :city
+        ORDER BY Name;
     """, {"city": city_contact})
     st.dataframe(df, use_container_width=True)
 
@@ -162,15 +176,19 @@ with tabs[1]:
         LIMIT 15;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("Name")["Total_Claims"])
-    except: pass
+    try:
+        st.bar_chart(df.set_index("Name")["Total_Claims"])
+    except Exception:
+        pass
 
 # -------------------------------
 # FOOD LISTINGS
 # -------------------------------
+
 with tabs[2]:
     st.subheader("Food Listings")
     vals = list_values()
+
     c1, c2, c3 = st.columns(3)
     filt_city = c1.selectbox("City", ["All"] + vals["cities"], index=0)
     filt_food_type = c2.selectbox("Food Type", ["All"] + vals["food_types"], index=0)
@@ -178,14 +196,21 @@ with tabs[2]:
 
     base_sql = """
         SELECT Food_ID, Food_Name, Quantity, Expiry_Date, Provider_ID,
-               Provider_Type, Location AS City, Food_Type, Meal_Type
+        Provider_Type, Location AS City, Food_Type, Meal_Type
         FROM Food_Listings
         WHERE 1=1
     """
     params = {}
-    if filt_city != "All": params["city"] = filt_city; base_sql += " AND Location = :city"
-    if filt_food_type != "All": params["ft"] = filt_food_type; base_sql += " AND Food_Type = :ft"
-    if filt_meal_type != "All": params["mt"] = filt_meal_type; base_sql += " AND Meal_Type = :mt"
+    if filt_city != "All":
+        params["city"] = filt_city
+        base_sql += " AND Location = :city"
+    if filt_food_type != "All":
+        params["ft"] = filt_food_type
+        base_sql += " AND Food_Type = :ft"
+    if filt_meal_type != "All":
+        params["mt"] = filt_meal_type
+        base_sql += " AND Meal_Type = :mt"
+
     df = run_df(base_sql + " ORDER BY Expiry_Date ASC, Quantity DESC;", params)
     st.dataframe(df, use_container_width=True, height=420)
 
@@ -204,8 +229,10 @@ with tabs[2]:
         LIMIT 10;
     """)
     st.dataframe(df_q6, use_container_width=True)
-    try: st.bar_chart(df_q6.set_index("City"))
-    except: pass
+    try:
+        st.bar_chart(df_q6.set_index("City"))
+    except Exception:
+        pass
 
     # Q7 most common food types
     st.markdown("**Q7: Most common food types**")
@@ -216,12 +243,15 @@ with tabs[2]:
         ORDER BY Listings DESC;
     """)
     st.dataframe(df_q7, use_container_width=True)
-    try: st.bar_chart(df_q7.set_index("Food_Type"))
-    except: pass
+    try:
+        st.bar_chart(df_q7.set_index("Food_Type"))
+    except Exception:
+        pass
 
 # -------------------------------
 # CLAIMS
 # -------------------------------
+
 with tabs[3]:
     st.subheader("Claims")
 
@@ -236,8 +266,10 @@ with tabs[3]:
         LIMIT 20;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("Food_Name")["Claims_Count"])
-    except: pass
+    try:
+        st.bar_chart(df.set_index("Food_Name")["Claims_Count"])
+    except Exception:
+        pass
 
     # Q9 provider by completed claims
     st.markdown("**Q9: Provider with most successful (Completed) claims**")
@@ -264,12 +296,15 @@ with tabs[3]:
         ORDER BY cnt DESC;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("Status")["cnt"])
-    except: pass
+    try:
+        st.bar_chart(df.set_index("Status")["cnt"])
+    except Exception:
+        pass
 
 # -------------------------------
 # ANALYTICS
 # -------------------------------
+
 with tabs[4]:
     st.subheader("Analytics")
 
@@ -277,9 +312,9 @@ with tabs[4]:
     st.markdown("**Q11: Average claimed quantity per receiver**")
     df = run_df("""
         WITH claim_qty AS (
-          SELECT c.Claim_ID, c.Receiver_ID, f.Quantity
-          FROM Claims c
-          JOIN Food_Listings f ON f.Food_ID = c.Food_ID
+            SELECT c.Claim_ID, c.Receiver_ID, f.Quantity
+            FROM Claims c
+            JOIN Food_Listings f ON f.Food_ID = c.Food_ID
         )
         SELECT r.Receiver_ID, r.Name,
                ROUND(AVG(claim_qty.Quantity), 2) AS Avg_Claimed_Quantity
@@ -301,8 +336,10 @@ with tabs[4]:
         ORDER BY Claims_Count DESC;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.bar_chart(df.set_index("Meal_Type")["Claims_Count"])
-    except: pass
+    try:
+        st.bar_chart(df.set_index("Meal_Type")["Claims_Count"])
+    except Exception:
+        pass
 
     # Q13 total quantity donated by provider
     st.markdown("**Q13: Total quantity donated by provider**")
@@ -335,23 +372,25 @@ with tabs[4]:
         ORDER BY Claim_Date ASC;
     """)
     st.dataframe(df, use_container_width=True)
-    try: st.line_chart(df.set_index("Claim_Date"))
-    except: pass
+    try:
+        st.line_chart(df.set_index("Claim_Date"))
+    except Exception:
+        pass
 
 # -------------------------------
 # CRUD
 # -------------------------------
+
 with tabs[5]:
     st.subheader("CRUD Operations")
     vals = list_values()
     crud_tabs = st.tabs(["Add Listing", "Update Quantity", "Add Claim", "Delete Claim"])
 
-       # -------------------------------
+    # -------------------------------
     # Add Listing
     # -------------------------------
-    with crud_tabs[0]:
+    with crud_tabs:
         st.markdown("**Create a new Food Listing**")
-
         food_name = st.text_input("Food Name")
         quantity = st.number_input("Quantity", min_value=1, step=1)
         expiry_date = st.date_input("Expiry Date", value=date.today(), key="expiry_date_add")
@@ -360,28 +399,22 @@ with tabs[5]:
         provider_name = st.selectbox("Provider", list(vals["providers"].keys()))
         provider_id = vals["providers"][provider_name]
         location = st.text_input("Location")
-
         if st.button("Add Listing"):
             try:
-                # get next Food_ID
                 df_next = run_df("SELECT COALESCE(MAX(Food_ID), 0)+1 AS next_id FROM Food_Listings;")
                 food_id = int(df_next["next_id"].iloc[0])
-
-                # fetch provider_type from Providers table (avoid using ambiguous column names in SQL)
-                df_pt = run_df("SELECT Provider_Type FROM Providers WHERE Provider_ID = ? LIMIT 1;", (provider_id,))
-                provider_type = df_pt["Provider_Type"].iloc[0] if not df_pt.empty else ""
-
                 run_exec("""
                     INSERT INTO Food_Listings (Food_ID, Food_Name, Quantity, Expiry_Date, Provider_ID,
-                                               Provider_Type, Location, Food_Type, Meal_Type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-                """, (food_id, food_name, quantity, expiry_date.isoformat(), provider_id,
-                      provider_type, location, food_type, meal_type))
+                        Provider_Type, Location, Food_Type, Meal_Type)
+                    VALUES (?, ?, ?, ?, ?,
+                        (SELECT Type FROM Providers WHERE Provider_ID = ?),
+                        ?, ?, ?);
+                    """, (food_id, food_name, quantity, expiry_date.isoformat(), provider_id,
+                          provider_id, location, food_type, meal_type))
                 invalidate_caches()
                 st.success(f"Food Listing {food_id} added successfully.")
             except Exception as e:
                 st.error(f"Failed to add listing: {e}")
-
 
     # -------------------------------
     # Update Quantity
@@ -416,18 +449,16 @@ with tabs[5]:
             food_pick = st.selectbox("Food", df_food.apply(lambda r: f"{r['Food_ID']} – {r['Food_Name']}", axis=1))
             receiver_pick = st.selectbox("Receiver", df_recv.apply(lambda r: f"{r['Receiver_ID']} – {r['Name']}", axis=1))
             status = st.selectbox("Status", ["Pending", "Completed", "Cancelled"], index=0)
-
             col1, col2 = st.columns(2)
             claim_date = col1.date_input("Claim Date", value=date.today(), key="claim_date_add")
             claim_time = col2.time_input("Claim Time", value=datetime.now().time(), key="claim_time_add")
             ts = datetime.combine(claim_date, claim_time)
-
             if st.button("Add Claim"):
                 try:
                     df_next = run_df("SELECT COALESCE(MAX(Claim_ID), 0)+1 AS next_id FROM Claims;")
                     claim_id = int(df_next["next_id"].iloc[0])
-                    food_id = int(food_pick.split("–")[0].strip())
-                    receiver_id = int(receiver_pick.split("–")[0].strip())
+                    food_id = int(food_pick.split("–").strip())
+                    receiver_id = int(receiver_pick.split("–").strip())
                     run_exec("""
                         INSERT INTO Claims (Claim_ID, Food_ID, Receiver_ID, Status, Timestamp)
                         VALUES (?, ?, ?, ?, ?);
@@ -449,7 +480,10 @@ with tabs[5]:
         if df.empty:
             st.info("No claims available.")
         else:
-            row = st.selectbox("Select Claim", df.apply(lambda r: f"Claim {r['Claim_ID']} – Food {r['Food_ID']} – Receiver {r['Receiver_ID']} – {r['Status']} – {r['Timestamp']}", axis=1))
+            row = st.selectbox(
+                "Select Claim",
+                df.apply(lambda r: f"Claim {r['Claim_ID']} – Food {r['Food_ID']} – Receiver {r['Receiver_ID']} – {r['Status']} – {r['Timestamp']}", axis=1)
+            )
             claim_id = int(row.split("–")[0].replace("Claim", "").strip())
             if st.button("Delete Claim"):
                 try:
@@ -458,5 +492,3 @@ with tabs[5]:
                     st.success(f"Claim {claim_id} deleted.")
                 except Exception as e:
                     st.error(f"Failed to delete claim: {e}")
-
-
